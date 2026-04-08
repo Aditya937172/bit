@@ -8,11 +8,13 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import json
-import shap
+import shap  # type: ignore
 import numpy as np
 import sqlite3
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google import genai  # type: ignore
+import io
+import matplotlib.backends.backend_pdf as pdf_backend
 
 # ---------------------------------------------------------
 # PAGE CONFIG
@@ -196,8 +198,9 @@ with st.sidebar:
 #=============================
 load_dotenv()  # Load environment variables from .env file
 GEMINI_API_KEY = os.getenv("GEMINI_API")
+genai_client = None
 if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+    genai_client = genai.Client(api_key=GEMINI_API_KEY)
 
 def generate_diagnosis_explanation(disease_name: str, confidence: float, shap_values: dict, patient_data: dict) -> str:
     try:
@@ -247,11 +250,13 @@ Please provide a concise clinical explanation (4-5 sentences) that:
 
 Use professional medical terminology but keep it clear and actionable. Focus on the most clinically relevant insights."""
 
-        if not GEMINI_API_KEY:
+        if not genai_client:
             return "⚠️ Gemini API key not configured. Unable to generate explanation."
 
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        response = model.generate_content(prompt)
+        response = genai_client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
 
         return response.text
 
@@ -331,6 +336,116 @@ def render_home():
             </div>
         </div>
     """, unsafe_allow_html=True)
+
+def generate_pdf_report(export_data):
+    import textwrap
+    buffer = io.BytesIO()
+    with pdf_backend.PdfPages(buffer) as pdf:
+        info = export_data.get("patient_info", {})
+        params = export_data.get("clinical_parameters", {})
+        ai_text = export_data.get("ai_clinical_insights", "N/A")
+        factors = export_data.get("significant_factors", {})
+
+        # ── PAGE 1: Summary
+        fig, ax = plt.subplots(figsize=(8.27, 11.69))  # A4
+        ax.axis('off')
+        fig.patch.set_facecolor('#FFFFFF')
+
+        y = 0.95
+        ax.text(0.5, y, "BodyWise AI — Diagnosis Report", ha='center', va='top',
+                fontsize=18, fontweight='bold', color='#2C3E50', transform=ax.transAxes)
+        y -= 0.04
+        ax.axhline(y=y, xmin=0.05, xmax=0.95, color='#BDC3C7', linewidth=1)
+        y -= 0.03
+
+        # Patient info block
+        fields = [
+            ("Patient", f"{info.get('first_name','')} {info.get('last_name','')}"),
+            ("Diagnosis", info.get('diagnosis', '')),
+            ("Confidence", f"{info.get('confidence', 0):.1f}%"),
+            ("Risk Level", info.get('risk_level', '')),
+        ]
+        for label, val in fields:
+            ax.text(0.08, y, f"{label}:", ha='left', va='top', fontsize=11,
+                    fontweight='bold', color='#34495E', transform=ax.transAxes)
+            ax.text(0.32, y, val, ha='left', va='top', fontsize=11,
+                    color='#2C3E50', transform=ax.transAxes)
+            y -= 0.035
+
+        y -= 0.02
+        ax.axhline(y=y, xmin=0.05, xmax=0.95, color='#BDC3C7', linewidth=0.5)
+        y -= 0.03
+
+        # AI Insights
+        ax.text(0.08, y, "AI Clinical Insights", ha='left', va='top', fontsize=13,
+                fontweight='bold', color='#2980B9', transform=ax.transAxes)
+        y -= 0.03
+        # Word wrap the AI text
+        words = ai_text.split()
+        line, lines = [], []
+        for w in words:
+            line.append(w)
+            if len(' '.join(line)) > 90:
+                lines.append(' '.join(line[:-1]))
+                line = [w]
+        lines.append(' '.join(line))
+        for l in lines[:12]:  # cap at 12 lines on page 1
+            ax.text(0.08, y, l, ha='left', va='top', fontsize=10,
+                    color='#34495E', transform=ax.transAxes)
+            y -= 0.025
+
+        y -= 0.02
+        ax.axhline(y=y, xmin=0.05, xmax=0.95, color='#BDC3C7', linewidth=0.5)
+        y -= 0.03
+
+        # Key factors
+        ax.text(0.08, y, "Key Contributing Factors", ha='left', va='top', fontsize=13,
+                fontweight='bold', color='#2980B9', transform=ax.transAxes)
+        y -= 0.03
+        for feat, details in list(factors.items())[:6]:
+            impact = details.get('shap_value', 0)
+            color = '#C0392B' if impact > 0 else '#27AE60'
+            direction = "↑ Increases risk" if impact > 0 else "↓ Decreases risk"
+            ax.text(0.08, y, f"• {feat}: {details.get('current_value', 0):.2f}  —  {direction}  (SHAP: {impact:.3f})",
+                    ha='left', va='top', fontsize=10, color=color, transform=ax.transAxes)
+            y -= 0.028
+
+        pdf.savefig(fig, facecolor=fig.get_facecolor())
+        plt.close()
+
+        # ── PAGE 2: Parameters table
+        fig2, ax2 = plt.subplots(figsize=(8.27, 11.69))
+        ax2.axis('off')
+        fig2.patch.set_facecolor('#FFFFFF')
+
+        ax2.text(0.5, 0.97, "Clinical Parameters", ha='center', va='top',
+                 fontsize=14, fontweight='bold', color='#2980B9', transform=ax2.transAxes)
+
+        rows = [[textwrap.fill(p, 22), f"{d['value']:.2f}", f"{d.get('normal_range', 'N/A')} {d.get('unit', '')}".strip(), str(d.get('status', '')).title()]
+                for p, d in params.items()]
+        headers = ['Parameter', 'Value', 'Reference Range', 'Status']
+        colWidths = [0.35, 0.15, 0.30, 0.20]
+
+        table = ax2.table(
+            cellText=rows, colLabels=headers, colWidths=colWidths,
+            loc='upper center', bbox=[0.05, 0.05, 0.90, 0.88]
+        )
+        table.auto_set_font_size(False)
+        table.set_fontsize(9)
+        for (r, c), cell in table.get_celld().items():
+            if r == 0:
+                cell.set_facecolor('#ECF0F1')
+                cell.set_text_props(color='#2C3E50', fontweight='bold')
+            else:
+                cell.set_facecolor('#FFFFFF' if r % 2 == 0 else '#F9F9F9')
+                cell.set_text_props(color='#34495E')
+            cell.set_edgecolor('#BDC3C7')
+
+        pdf.savefig(fig2, facecolor=fig2.get_facecolor())
+        plt.close()
+
+    buffer.seek(0)
+    return buffer.read()
 
 # =========================================================
 # PATIENT DASHBOARD PAGE
@@ -739,8 +854,9 @@ def render_patient_dashboard():
                             "current_value": float(patient_data.get(feature, 0))
                         }
 
-                    st.session_state["report_ready"] = json.dumps(export_data, indent=2)
-                    st.session_state["report_filename"] = f"{f_name}_{s_name}_AI_diagnosis_report.json"
+                    pdf_bytes = generate_pdf_report(export_data)
+                    st.session_state["report_ready"] = pdf_bytes
+                    st.session_state["report_filename"] = f"{f_name}_{s_name}_AI_diagnosis_report.pdf"
                     st.session_state["last_prediction_id"] = current_prediction_id
 
             if "report_ready" in st.session_state:
@@ -748,7 +864,7 @@ def render_patient_dashboard():
                     label="📥 Download AI Insights Report",
                     data=st.session_state["report_ready"],
                     file_name=st.session_state["report_filename"],
-                    mime="application/json",
+                    mime="application/pdf",
                     key="download_ai_report_btn",
                     use_container_width=True,
                     type="primary"
