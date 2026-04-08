@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Insights Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="bg-gradient-1"></div>
+    <div class="bg-gradient-2"></div>
+
+    <header class="app-header">
+        <div class="logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            <span>MediCore AI</span>
+        </div>
+        <nav class="nav-links">
+            <button class="nav-item active interactive" id="btn-home">Home</button>
+            <div class="dropdown-wrapper" id="patients-dropdown-wrapper">
+                <button class="nav-item interactive" id="btn-patients">Patients <svg class="arrow-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+                <div class="dropdown-content" id="patients-list"></div>
+            </div>
+            <button class="nav-item interactive" id="btn-add-client">Add Client</button>
+            <button class="nav-item interactive" id="btn-example-doc">Example Doc</button>
+        </nav>
+        <div class="header-profile interactive">
+            <div class="avatar"></div>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <section id="view-home" class="view-section active">
+            <div class="hero-layout">
+                <div class="hero-content">
+                    <h1 class="hero-title">Next-Generation<br>Patient Intelligence.</h1>
+                    <p class="hero-subtitle">Advanced medical software interface streamlining patient data, insights, and predictive diagnostics into a seamless, Apple-inspired experience.</p>
+                    <div class="hero-stats">
+                        <div class="stat-card hover-lift">
+                            <span class="stat-value" id="hero-total-patients">0</span>
+                            <span class="stat-label">Patients Ready</span>
+                        </div>
+                        <div class="stat-card hover-lift">
+                            <span class="stat-value" id="hero-default-patient">AI</span>
+                            <span class="stat-label">Active Workspace</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero-image-wrapper">
+                    <img src="hero-bg.png" alt="Medical AI dashboard" class="hero-img hover-lift">
+                </div>
+            </div>
+        </section>
+
+        <section id="view-patient" class="view-section hidden">
+            <div class="patient-header">
+                <div>
+                    <h2 class="patient-name" id="display-patient-name">Select a Patient</h2>
+                    <p class="patient-meta">ID: <span id="display-patient-id">-</span> | Last updated: <span id="display-patient-updated">Just now</span></p>
+                </div>
+                <div class="patient-actions">
+                    <button class="action-btn interactive" id="btn-tab-overview">Overview</button>
+                    <button class="action-btn secondary interactive" id="btn-tab-detailed">Detailed Report</button>
+                </div>
+            </div>
+
+            <div class="dashboard-wrapper">
+                <div id="tab-overview" class="dashboard-tab active">
+                    <div class="top-widgets-row">
+                        <div class="widget small-widget hover-lift">
+                            <h4 class="widget-title">Vitals Status</h4>
+                            <div class="widget-value highlight-green" id="overview-vitals-status">Stable</div>
+                            <div class="widget-sparkline" id="overview-vitals-sparkline"></div>
+                        </div>
+                        <div class="widget small-widget hover-lift">
+                            <h4 class="widget-title">Risk Assessment</h4>
+                            <div class="widget-value highlight-accent" id="overview-risk-status">Low</div>
+                            <div class="widget-sparkline alert-line" id="overview-risk-sparkline"></div>
+                        </div>
+                    </div>
+
+                    <div class="main-widgets-row">
+                        <div class="widget report-panel hover-lift">
+                            <h3 class="widget-title">Overall Report</h3>
+                            <div class="report-content" id="overview-report-content">
+                                <p>Choose a patient to load the generated overall report.</p>
+                            </div>
+                            <button class="download-btn interactive" id="download-pdf-btn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                                Download PDF
+                            </button>
+                        </div>
+
+                        <div class="widget chat-panel hover-lift">
+                            <div class="chat-header">
+                                <h3 class="widget-title">AI Assistant</h3>
+                                <div class="upload-zone interactive" id="document-upload">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                                    <span>Upload Doc</span>
+                                </div>
+                            </div>
+                            <div class="chat-history" id="chat-history">
+                                <div class="chat-msg ai-msg bounce-in">Hello, I've analyzed the patient's records. How can I help you today?</div>
+                            </div>
+                            <div class="chat-input-area">
+                                <input type="text" placeholder="Ask about reports..." class="chat-input" id="chat-input">
+                                <button class="send-btn interactive" id="chat-send-btn">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-detailed" class="dashboard-tab hidden">
+                    <div class="detailed-header">
+                        <h3 class="widget-title">Comprehensive Analysis</h3>
+                        <p class="subtitle">Detailed breakdown of clinical data and derived metrics over time.</p>
+                    </div>
+                    
+                    <div class="graphs-grid" id="detailed-grid">
+                        <div class="widget graph-widget full-width hover-lift">
+                            <h4 class="widget-title" id="trend-title">Continuous Monitoring Trends</h4>
+                            <div class="mock-graph-container">
+                                <svg class="animated-line-svg" preserveAspectRatio="none" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                    <path id="trend-line-path" class="animated-path" d="M0,80 Q25,20 50,60 T100,30" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
+                                    <path id="trend-fill-path" class="animated-path background" d="M0,80 Q25,20 50,60 T100,30 L100,100 L0,100 Z" fill="url(#grad)" stroke="none" />
+                                    <defs>
+                                        <linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                            <stop offset="0%" style="stop-color:var(--accent);stop-opacity:0.2" />
+                                            <stop offset="100%" style="stop-color:var(--accent);stop-opacity:0" />
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
+                                <div class="graph-axes" id="trend-axis"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="widget graph-widget hover-lift">
+                            <h4 class="widget-title" id="severity-title">Severity Profile</h4>
+                            <div class="bar-chart" id="severity-bar-chart"></div>
+                        </div>
+                        
+                        <div class="widget graph-widget hover-lift">
+                            <h4 class="widget-title" id="insight-title">Derived Insights</h4>
+                            <ul class="derivation-list" id="derived-insights-list">
+                                <li class="stagger-item"><strong>Status:</strong> Choose a patient to load derived insights.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <input id="report-file-input" type="file" accept=".pdf,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.webp,.bmp" hidden>
+
+    <script src="script.js"></script>
+</body>
+</html>

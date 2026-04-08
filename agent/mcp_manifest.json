@@ -1,0 +1,34 @@
+{
+  "mcp_connections": [
+    {
+      "name": "local_file_research",
+      "purpose": "Read parsed intake payloads, local notes, and local sample reports",
+      "status": "active-by-code"
+    },
+    {
+      "name": "reference_range_lookup",
+      "purpose": "Use Data/medical_ranges.json as reference truth for verification",
+      "status": "active-by-code"
+    },
+    {
+      "name": "future_database_lookup",
+      "purpose": "Read prior patient reports from Database/ for comparison",
+      "status": "active-by-code"
+    },
+    {
+      "name": "future_local_retrieval_layer",
+      "purpose": "Retrieve prior saved JSON reports, notes, and derived summaries",
+      "status": "active-by-code"
+    },
+    {
+      "name": "local_case_memory_mcp",
+      "purpose": "Carry forward recent chat turns, main measured markers, and next-step memory for the active patient case",
+      "status": "active-by-code"
+    },
+    {
+      "name": "verified_web_facts_library",
+      "purpose": "Use source-backed official medication and treatment education references encoded for dashboard and chat",
+      "status": "active-by-code"
+    }
+  ]
+}

@@ -1,2 +1,15 @@
 .env
 node_modules
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.playwright-mcp/
+agent/generated_cases/
+agent/uploads/
+agent/wireframes/
+agent/agent_report_output*.json
+agent/agent_report_output*.pdf
+agent/sample_output.json
+agent/example_new_client_output.json
+agent/generated_report_visual.png

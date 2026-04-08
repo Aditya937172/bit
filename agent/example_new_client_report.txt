@@ -1,0 +1,24 @@
+Patient Name: Riya Sharma
+Blood Pressure: 152/98
+Glucose: 172 mg/dL
+Cholesterol: 228 mg/dL
+Hemoglobin: 11.2 g/dL
+Platelets: 155000 /uL
+WBC: 10800 /mm3
+RBC: 4.0 M/uL
+Hematocrit: 35 %
+MCV: 76 fL
+MCH: 24.8 pg
+MCHC: 31.5 g/dL
+Insulin: 26 uU/mL
+BMI: 30.4
+Triglycerides: 246 mg/dL
+HbA1c: 8.4 %
+LDL: 171 mg/dL
+HDL: 37 mg/dL
+ALT: 52 U/L
+AST: 43 U/L
+Heart Rate: 102 bpm
+Creatinine: 1.2 mg/dL
+Troponin: 0.02 ng/mL
+CRP: 5.1 mg/L
