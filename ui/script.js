@@ -5,7 +5,11 @@ document.addEventListener('DOMContentLoaded', () => {
         btnHome: document.getElementById('btn-home'),
         btnPatients: document.getElementById('btn-patients'),
         btnAddClient: document.getElementById('btn-add-client'),
-        btnExampleDoc: document.getElementById('btn-example-doc'),
+        createClientWrapper: document.getElementById('create-client-wrapper'),
+        createClientPopover: document.getElementById('create-client-popover'),
+        clientNameInput: document.getElementById('client-name-input'),
+        createClientFileInput: document.getElementById('create-client-file-input'),
+        createClientFileName: document.getElementById('create-client-file-name'),
         dropdownWrapper: document.getElementById('patients-dropdown-wrapper'),
         patientsList: document.getElementById('patients-list'),
         viewHome: document.getElementById('view-home'),
@@ -15,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
         displayPatientUpdated: document.getElementById('display-patient-updated'),
         btnTabOverview: document.getElementById('btn-tab-overview'),
         btnTabDetailed: document.getElementById('btn-tab-detailed'),
+        btnDeletePatient: document.getElementById('btn-delete-patient'),
         tabOverview: document.getElementById('tab-overview'),
         tabDetailed: document.getElementById('tab-detailed'),
         overviewVitalsStatus: document.getElementById('overview-vitals-status'),
@@ -24,7 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
         overviewReportContent: document.getElementById('overview-report-content'),
         downloadPdfBtn: document.getElementById('download-pdf-btn'),
         documentUpload: document.getElementById('document-upload'),
-        reportFileInput: document.getElementById('report-file-input'),
+        chatFileInput: document.getElementById('chat-file-input'),
+        chatAgentStrip: document.getElementById('chat-agent-strip'),
         chatHistory: document.getElementById('chat-history'),
         chatInput: document.getElementById('chat-input'),
         chatSendBtn: document.getElementById('chat-send-btn'),
@@ -39,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
         detailedGrid: document.getElementById('detailed-grid'),
         heroTotalPatients: document.getElementById('hero-total-patients'),
         heroDefaultPatient: document.getElementById('hero-default-patient'),
+        reportStatusText: document.getElementById('report-status-text'),
     };
 
     const state = {
@@ -46,9 +53,9 @@ document.addEventListener('DOMContentLoaded', () => {
         payloadCache: new Map(),
         chatHistoryCache: new Map(),
         selectedCaseId: null,
+        pendingCreateFile: null,
+        activeAgentKey: null,
     };
-
-    const MAX_VISIBLE_CLIENTS = 4;
 
     const PRIORITY_COPY = {
         high: 'Attention',
@@ -71,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function canonicalProfileKey(profile) {
         const name = String(profile?.patientName || '').trim().toLowerCase();
-        return name;
+        return name || String(profile?.caseId || '').trim().toLowerCase();
     }
 
     function normalizeProfiles(profiles) {
@@ -85,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 unique.set(key, profile);
             }
         });
-        return Array.from(unique.values()).slice(0, MAX_VISIBLE_CLIENTS);
+        return Array.from(unique.values());
     }
 
     function formatDate(value) {
@@ -124,6 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.btnHome.classList.add('active');
         dom.btnPatients.classList.remove('active');
         dom.dropdownWrapper.classList.remove('open');
+        dom.createClientPopover.classList.remove('open');
     }
 
     function showPatientView() {
@@ -168,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!state.profiles.length) {
             const empty = document.createElement('div');
             empty.className = 'dropdown-item';
-            empty.textContent = 'No patients yet';
+            empty.textContent = 'Loading patients...';
             dom.patientsList.appendChild(empty);
             return;
         }
@@ -200,6 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.displayPatientName.textContent = profile.patientName || 'Selected Patient';
         dom.displayPatientId.textContent = profile.caseId || '-';
         dom.displayPatientUpdated.textContent = formatDate(profile.createdAt);
+        dom.btnDeletePatient.disabled = !profile.caseId || String(profile.caseId).startsWith('demo-') || String(profile.caseId).startsWith('legacy-');
     }
 
     function renderOverviewWidgets(profile) {
@@ -216,6 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderOverviewReport(profile, payload) {
         const report = payload.report_agent_output || {};
         const raw = payload.raw_intake || {};
+        const comparison = payload.dashboard_enrichment?.report_comparison || null;
         const ingestion = raw.parsed_document?.document_ingestion || {};
         const parsedPayload = raw.parsed_document?.parsed_payload || {};
         const summary = report.summary || profile.summary || 'No summary available.';
@@ -241,6 +251,17 @@ document.addEventListener('DOMContentLoaded', () => {
             ${listMarkup(nextSteps, (item) => escapeHtml(item), 'No next steps available.')}
             <h4>Diet Examples</h4>
             ${listMarkup(dietExamples, (item) => escapeHtml(item), 'Diet examples will appear when available.')}
+            <h4>Comparison</h4>
+            ${
+                comparison
+                    ? `<p>${escapeHtml(comparison.summary || 'A previous report was found for this patient.')}</p>
+                       ${listMarkup(
+                           (comparison.rows || []).slice(0, 4),
+                           (row) => `<strong>${escapeHtml(row.feature)}:</strong> ${escapeHtml(String(row.previous_value))} -> ${escapeHtml(String(row.current_value))} (${escapeHtml(row.current_status || 'review')})`,
+                           'Comparison rows will appear here.'
+                       )}`
+                    : '<p>No previous report found yet. Upload another report for the same patient name to see change tracking.</p>'
+            }
         `;
     }
 
@@ -312,6 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.detailedGrid.querySelectorAll('.dynamic-detail-card').forEach((node) => node.remove());
         const similarCases = payload.dashboard_enrichment?.similar_cases || [];
         const medication = payload.dashboard_enrichment?.medication_guidance || {};
+        const comparison = payload.dashboard_enrichment?.report_comparison || null;
         const cards = [
             makeDynamicCard(
                 'Top Abnormal Markers',
@@ -377,6 +399,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     )}
                 `
             ),
+            makeDynamicCard(
+                'Last Report Vs This Report',
+                comparison
+                    ? `
+                        <p>${escapeHtml(comparison.summary || 'Comparison is available for this patient.')}</p>
+                        ${cardList(
+                            (comparison.rows || []).slice(0, 6),
+                            (row) => `<strong>${escapeHtml(row.feature)}:</strong> ${escapeHtml(String(row.previous_value))} -> ${escapeHtml(String(row.current_value))} | ${escapeHtml(row.direction || 'same')} | ${escapeHtml(row.current_status || 'review')}`,
+                            'Comparison details will appear here.'
+                        )}
+                        ${cardList(
+                            comparison.precautions || [],
+                            (item) => escapeHtml(item),
+                            'No precautions were suggested.'
+                        )}
+                    `
+                    : '<p>No earlier report is stored for this patient yet. Upload the next report with the same patient name to unlock side-by-side comparison.</p>'
+            ),
         ];
 
         cards.forEach((card) => dom.detailedGrid.appendChild(card));
@@ -402,14 +442,98 @@ document.addEventListener('DOMContentLoaded', () => {
         appendChatBubble(greeting, false, false);
     }
 
-    function appendChatBubble(text, isUser = false, shouldScroll = true) {
+    function appendChatBubble(text, isUser = false, shouldScroll = true, extraClass = '') {
         const message = document.createElement('div');
-        message.className = `chat-msg bounce-in ${isUser ? 'user-msg' : 'ai-msg'}`;
+        message.className = `chat-msg bounce-in ${isUser ? 'user-msg' : 'ai-msg'} ${extraClass}`.trim();
         message.innerHTML = escapeHtml(text).replace(/\n/g, '<br>');
         dom.chatHistory.appendChild(message);
         if (shouldScroll) {
             dom.chatHistory.scrollTop = dom.chatHistory.scrollHeight;
         }
+    }
+
+    function agentIconMarkup(iconKey) {
+        const icons = {
+            metabolic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h4l2-6 4 12 2-6h4"/></svg>',
+            cardio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-6.7-4.35-9-8.28C1 9.2 2.8 5 7 5c2.1 0 3.4 1.05 5 3 1.6-1.95 2.9-3 5-3 4.2 0 6 4.2 4 7.72C18.7 16.65 12 21 12 21z"/></svg>',
+            heme: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c4 5 6 8.2 6 11a6 6 0 1 1-12 0c0-2.8 2-6 6-11z"/></svg>',
+            internal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>',
+            general: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>',
+        };
+        return icons[iconKey] || icons.general;
+    }
+
+    function renderAgentStrip(payload) {
+        const agents = payload?.dashboard_enrichment?.specialist_agents || [];
+        if (!agents.length) {
+            dom.chatAgentStrip.innerHTML = '';
+            state.activeAgentKey = null;
+            return;
+        }
+        if (!state.activeAgentKey || !agents.some((agent) => agent.key === state.activeAgentKey)) {
+            state.activeAgentKey = agents[0].key;
+        }
+        dom.chatAgentStrip.innerHTML = agents.map((agent) => `
+            <button type="button" class="agent-chip interactive ${agent.key === state.activeAgentKey ? 'active' : ''}" data-agent-key="${escapeHtml(agent.key)}">
+                <span class="agent-chip-icon">${agentIconMarkup(agent.icon)}</span>
+                <span class="agent-chip-name">${escapeHtml(agent.name)}</span>
+                <span class="agent-chip-role">${escapeHtml(agent.title)}</span>
+            </button>
+        `).join('');
+    }
+
+    function getActiveAgentMeta(payload) {
+        const agents = payload?.dashboard_enrichment?.specialist_agents || [];
+        return agents.find((agent) => agent.key === state.activeAgentKey) || agents[0] || null;
+    }
+
+    function runAgentTransition(agent) {
+        if (!agent) {
+            return;
+        }
+        dom.chatHistory.classList.remove('agent-shift');
+        void dom.chatHistory.offsetWidth;
+        dom.chatHistory.classList.add('agent-shift');
+        window.setTimeout(() => dom.chatHistory.classList.remove('agent-shift'), 420);
+        appendChatBubble(
+            `${agent.name} is now active. ${agent.title} will keep the shared case notes in mind.`,
+            false,
+            true,
+            'agent-transition-msg'
+        );
+    }
+
+    function buildAssistantMessage(data) {
+        const sections = [];
+        if (data?.answer) {
+            sections.push(data.answer);
+        }
+        const citations = Array.isArray(data?.citations) ? data.citations : [];
+        if (citations.length) {
+            const sourceLine = citations
+                .slice(0, 2)
+                .map((source) => `${source.publisher || 'Source'}: ${source.title || source.url || ''}`)
+                .join(' | ');
+            sections.push(`Sources: ${sourceLine}`);
+        }
+        return sections.filter(Boolean).join('\n\n');
+    }
+
+    function resetCreateClientPopover() {
+        state.pendingCreateFile = null;
+        dom.clientNameInput.value = '';
+        dom.createClientFileName.textContent = 'Enter the client name, then choose the report. The client will be created automatically.';
+        dom.createClientFileInput.value = '';
+    }
+
+    function closeCreateClientPopover() {
+        dom.createClientPopover.classList.remove('open');
+        resetCreateClientPopover();
+    }
+
+    function openCreateClientPopover() {
+        dom.createClientPopover.classList.add('open');
+        dom.clientNameInput.focus();
     }
 
     async function loadChatHistory(caseId) {
@@ -445,13 +569,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`${API_BASE}/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ case_id: profile.caseId, message: question }),
+                body: JSON.stringify({ case_id: profile.caseId, message: question, agent_key: state.activeAgentKey }),
             });
             if (!response.ok) {
                 throw new Error('Chat request failed');
             }
             const data = await response.json();
-            appendChatBubble(data.answer || 'I could not generate an answer right now.', false);
+            appendChatBubble(buildAssistantMessage(data) || 'I could not generate an answer right now.', false);
             state.chatHistoryCache.set(profile.caseId, Array.isArray(data.history) ? data.history : []);
         } catch (error) {
             appendChatBubble('I hit a problem while answering that. Please try again in a moment.', false);
@@ -471,8 +595,10 @@ document.addEventListener('DOMContentLoaded', () => {
         setHeader(profile);
         renderOverviewWidgets(profile);
         dom.downloadPdfBtn.disabled = !profile.pdfPath;
+        dom.reportStatusText.textContent = `Report ready for ${profile.patientName}.`;
         try {
             const payload = await ensurePayload(caseId);
+            renderAgentStrip(payload);
             renderOverviewReport(profile, payload);
             drawTrendGraph(profile);
             renderSeverityBars(profile);
@@ -490,17 +616,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function uploadFiles(fileList) {
+    async function uploadFiles(fileList, options = {}) {
         const files = Array.from(fileList || []).filter(Boolean);
         if (!files.length) {
             return;
         }
         const file = files[0];
-        appendChatBubble(`Uploading ${file.name} for analysis...`, true);
+        const patientName = String(options.patientName || '').trim();
+        dom.reportStatusText.textContent = `Uploading ${file.name} and generating the report. This can take a few seconds.`;
+        dom.btnAddClient.classList.add('active');
+        dom.documentUpload.classList.add('active');
+        appendChatBubble(patientName ? `Uploading ${file.name} for ${patientName}...` : `Uploading ${file.name} for analysis...`, true);
         const formData = new FormData();
         formData.append('file', file);
         formData.append('fill_missing', 'true');
         formData.append('prefer_local_agents', 'true');
+        if (patientName) {
+            formData.append('patient_name', patientName);
+        }
 
         try {
             const response = await fetch(`${API_BASE}/analyze-upload`, {
@@ -521,12 +654,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderPatientList();
                 await selectProfile(data.profile.caseId, true);
                 showOverviewTab();
+                dom.dropdownWrapper.classList.remove('open');
+                closeCreateClientPopover();
+                dom.reportStatusText.textContent = `Report ready for ${data.profile.patientName}. PDF and detailed insights are updated.`;
                 appendChatBubble(`Document parsed successfully. ${data.profile.patientName} is now loaded as the active patient.`, false);
             }
         } catch (error) {
+            dom.reportStatusText.textContent = 'Upload failed. Please try another report or retry this one.';
             appendChatBubble('The upload could not be processed right now. Please try again.', false);
         } finally {
-            dom.reportFileInput.value = '';
+            dom.chatFileInput.value = '';
+            dom.btnAddClient.classList.remove('active');
+            dom.documentUpload.classList.remove('active');
         }
     }
 
@@ -553,16 +692,27 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.btnHome.addEventListener('click', showHome);
     dom.btnPatients.addEventListener('click', (event) => {
         event.stopPropagation();
+        showPatientView();
+        showOverviewTab();
+        closeCreateClientPopover();
         dom.dropdownWrapper.classList.toggle('open');
     });
-    dom.btnAddClient.addEventListener('click', () => dom.reportFileInput.click());
-    dom.btnExampleDoc.addEventListener('click', () => {
-        window.open('/api/example-document', '_blank', 'noopener');
-    });
-
     document.addEventListener('click', (event) => {
         if (!dom.dropdownWrapper.contains(event.target)) {
             dom.dropdownWrapper.classList.remove('open');
+        }
+        if (dom.createClientWrapper && !dom.createClientWrapper.contains(event.target)) {
+            dom.createClientPopover.classList.remove('open');
+        }
+    });
+
+    dom.btnAddClient.addEventListener('click', (event) => {
+        event.stopPropagation();
+        dom.dropdownWrapper.classList.remove('open');
+        if (dom.createClientPopover.classList.contains('open')) {
+            closeCreateClientPopover();
+        } else {
+            openCreateClientPopover();
         }
     });
 
@@ -584,7 +734,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         showDetailedTab();
     });
-
     dom.chatSendBtn.addEventListener('click', sendChatMessage);
     dom.chatInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
@@ -592,14 +741,85 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    dom.documentUpload.addEventListener('click', () => dom.reportFileInput.click());
-    dom.reportFileInput.addEventListener('change', (event) => uploadFiles(event.target.files));
+    dom.chatAgentStrip.addEventListener('click', (event) => {
+        const button = event.target.closest('.agent-chip');
+        if (!button) {
+            return;
+        }
+        const nextAgentKey = button.dataset.agentKey;
+        if (!nextAgentKey || nextAgentKey === state.activeAgentKey) {
+            return;
+        }
+        state.activeAgentKey = nextAgentKey;
+        const payload = state.selectedCaseId ? state.payloadCache.get(state.selectedCaseId) : null;
+        if (payload) {
+            renderAgentStrip(payload);
+            runAgentTransition(getActiveAgentMeta(payload));
+        }
+    });
+
+    dom.createClientFileInput.addEventListener('change', (event) => {
+        const file = event.target.files?.[0] || null;
+        state.pendingCreateFile = file;
+        if (!file) {
+            dom.createClientFileName.textContent = 'Enter the client name, then choose the report. The client will be created automatically.';
+            return;
+        }
+
+        const patientName = dom.clientNameInput.value.trim();
+        if (!patientName) {
+            dom.createClientFileName.textContent = 'Enter the client name first, then choose the report again.';
+            dom.createClientFileInput.value = '';
+            state.pendingCreateFile = null;
+            return;
+        }
+
+        dom.createClientFileName.textContent = `Selected ${file.name}. Creating ${patientName} now...`;
+        uploadFiles([file], { patientName });
+    });
+
+    dom.chatFileInput.addEventListener('change', (event) => uploadFiles(event.target.files));
+
+    dom.btnDeletePatient.addEventListener('click', async () => {
+        const profile = currentProfile();
+        if (!profile?.caseId || String(profile.caseId).startsWith('demo-') || String(profile.caseId).startsWith('legacy-')) {
+            return;
+        }
+        const confirmed = window.confirm(`Are you sure you want to delete ${profile.patientName}? This removes the uploaded case, chat history, and generated files.`);
+        if (!confirmed) {
+            return;
+        }
+        try {
+            dom.reportStatusText.textContent = `Deleting ${profile.patientName}...`;
+            const response = await fetch(`${API_BASE}/cases/${encodeURIComponent(profile.caseId)}`, { method: 'DELETE' });
+            if (!response.ok) {
+                throw new Error('Delete failed');
+            }
+            state.payloadCache.delete(profile.caseId);
+            state.chatHistoryCache.delete(profile.caseId);
+            state.profiles = state.profiles.filter((item) => item.caseId !== profile.caseId);
+            updateHomeMetrics();
+            renderPatientList();
+            if (state.profiles.length) {
+                await selectProfile(state.profiles[0].caseId, true);
+                showOverviewTab();
+            } else {
+                state.selectedCaseId = null;
+                showHome();
+            }
+            dom.reportStatusText.textContent = `${profile.patientName} was deleted.`;
+        } catch (error) {
+            appendChatBubble('Patient could not be deleted right now. Please try again.', false);
+            dom.reportStatusText.textContent = `Delete failed for ${profile.patientName}.`;
+        }
+    });
 
     dom.downloadPdfBtn.addEventListener('click', async () => {
         const profile = currentProfile();
         if (!profile?.pdfPath) {
             return;
         }
+        dom.reportStatusText.textContent = `Generating the latest PDF for ${profile.patientName}. Please wait...`;
         try {
             const response = await fetch(profile.pdfPath);
             if (!response.ok) {
@@ -614,7 +834,9 @@ document.addEventListener('DOMContentLoaded', () => {
             link.click();
             link.remove();
             URL.revokeObjectURL(blobUrl);
+            dom.reportStatusText.textContent = `Latest PDF is ready for ${profile.patientName}.`;
         } catch (error) {
+            dom.reportStatusText.textContent = 'PDF generation failed. Please retry in a few seconds.';
             appendChatBubble('The PDF could not be downloaded right now. Please try again.', false);
         }
     });

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Medical Insights Dashboard</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20260409-agents7">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -19,13 +19,28 @@
             <span>MediCore AI</span>
         </div>
         <nav class="nav-links">
-            <button class="nav-item active interactive" id="btn-home">Home</button>
+            <button type="button" class="nav-item active interactive" id="btn-home">Home</button>
             <div class="dropdown-wrapper" id="patients-dropdown-wrapper">
-                <button class="nav-item interactive" id="btn-patients">Patients <svg class="arrow-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+                <button type="button" class="nav-item interactive" id="btn-patients">Patients <svg class="arrow-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
                 <div class="dropdown-content" id="patients-list"></div>
             </div>
-            <button class="nav-item interactive" id="btn-add-client">Add Client</button>
-            <button class="nav-item interactive" id="btn-example-doc">Example Doc</button>
+            <div class="create-client-wrapper" id="create-client-wrapper">
+                <button type="button" class="nav-item interactive upload-label" id="btn-add-client">Create Client</button>
+                <div class="create-client-popover" id="create-client-popover">
+                    <p class="create-client-title">Create Client</p>
+                    <div class="create-client-field">
+                        <span>Client Name</span>
+                        <input type="text" id="client-name-input" placeholder="Enter patient name">
+                    </div>
+                    <div class="create-client-actions">
+                        <label class="upload-zone interactive" for="create-client-file-input">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                            <span>Add Report</span>
+                        </label>
+                    </div>
+                    <p class="create-client-file" id="create-client-file-name">Enter the client name, then choose the report. The client will be created automatically.</p>
+                </div>
+            </div>
         </nav>
         <div class="header-profile interactive">
             <div class="avatar"></div>
@@ -62,8 +77,9 @@
                     <p class="patient-meta">ID: <span id="display-patient-id">-</span> | Last updated: <span id="display-patient-updated">Just now</span></p>
                 </div>
                 <div class="patient-actions">
-                    <button class="action-btn interactive" id="btn-tab-overview">Overview</button>
-                    <button class="action-btn secondary interactive" id="btn-tab-detailed">Detailed Report</button>
+                    <button type="button" class="action-btn interactive" id="btn-tab-overview">Overview</button>
+                    <button type="button" class="action-btn secondary interactive" id="btn-tab-detailed">Detailed Report</button>
+                    <button type="button" class="action-btn danger interactive" id="btn-delete-patient">Delete Patient</button>
                 </div>
             </div>
 
@@ -88,26 +104,28 @@
                             <div class="report-content" id="overview-report-content">
                                 <p>Choose a patient to load the generated overall report.</p>
                             </div>
-                            <button class="download-btn interactive" id="download-pdf-btn">
+                            <button type="button" class="download-btn interactive" id="download-pdf-btn">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
                                 Download PDF
                             </button>
+                            <p class="report-status" id="report-status-text">Report ready when a patient is loaded.</p>
                         </div>
 
                         <div class="widget chat-panel hover-lift">
                             <div class="chat-header">
                                 <h3 class="widget-title">AI Assistant</h3>
-                                <div class="upload-zone interactive" id="document-upload">
+                                <label class="upload-zone interactive" id="document-upload" for="chat-file-input">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
                                     <span>Upload Doc</span>
-                                </div>
+                                </label>
                             </div>
+                            <div class="agent-strip" id="chat-agent-strip"></div>
                             <div class="chat-history" id="chat-history">
                                 <div class="chat-msg ai-msg bounce-in">Hello, I've analyzed the patient's records. How can I help you today?</div>
                             </div>
                             <div class="chat-input-area">
                                 <input type="text" placeholder="Ask about reports..." class="chat-input" id="chat-input">
-                                <button class="send-btn interactive" id="chat-send-btn">
+                                <button type="button" class="send-btn interactive" id="chat-send-btn">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                                 </button>
                             </div>
@@ -156,8 +174,9 @@
         </section>
     </main>
 
-    <input id="report-file-input" type="file" accept=".pdf,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.webp,.bmp" hidden>
+    <input id="create-client-file-input" class="visually-hidden-input" type="file" accept=".pdf,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.webp,.bmp">
+    <input id="chat-file-input" class="visually-hidden-input" type="file" accept=".pdf,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.webp,.bmp">
 
-    <script src="script.js"></script>
+    <script src="script.js?v=20260409-agents7"></script>
 </body>
 </html>

@@ -5,6 +5,7 @@ from typing import Any
 
 from agent.llm_client import LLMClient
 from agent.skills_manager import build_skill_block
+from .clinical_facts import FACT_SOURCES
 
 
 FEATURE_KEYWORDS = {
@@ -89,6 +90,59 @@ SYSTEM_KEYWORDS = {
 }
 
 
+SPECIALIST_AGENTS = {
+    "dr_emily_carter": {
+        "name": "Emily",
+        "title": "Metabolic & Endocrine Specialist",
+        "focus_features": {"Glucose", "HbA1c", "Insulin", "BMI", "Triglycerides"},
+        "source_ids": ["ada_type2_meds", "aha_tg_meds"],
+        "icon": "metabolic",
+        "skill": "dr_emily_carter_skill.md",
+    },
+    "dr_james_brooks": {
+        "name": "James",
+        "title": "Cardiovascular Specialist",
+        "focus_features": {
+            "Systolic Blood Pressure",
+            "Diastolic Blood Pressure",
+            "Heart Rate",
+            "Cholesterol",
+            "LDL Cholesterol",
+            "HDL Cholesterol",
+            "Troponin",
+        },
+        "source_ids": ["aha_bp_meds", "aha_chol_meds", "aha_heart_meds"],
+        "icon": "cardio",
+        "skill": "dr_james_brooks_skill.md",
+    },
+    "dr_hannah_reed": {
+        "name": "Hannah",
+        "title": "Hematology Specialist",
+        "focus_features": {
+            "Hemoglobin",
+            "Red Blood Cells",
+            "Hematocrit",
+            "Mean Corpuscular Volume",
+            "Mean Corpuscular Hemoglobin",
+            "Mean Corpuscular Hemoglobin Concentration",
+            "White Blood Cells",
+            "Platelets",
+        },
+        "source_ids": ["nhlbi_anemia_tx", "nhlbi_platelet_tx"],
+        "icon": "heme",
+        "skill": "dr_hannah_reed_skill.md",
+    },
+    "dr_olivia_bennett": {
+        "name": "Olivia",
+        "title": "Internal Medicine Specialist",
+        "focus_features": {"C-reactive Protein", "Creatinine", "ALT", "AST", "Troponin"},
+        "source_ids": ["aha_heart_meds", "nhlbi_anemia_tx"],
+        "icon": "internal",
+        "skill": "dr_olivia_bennett_skill.md",
+    },
+}
+
+
 def _feature_snapshot(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
     normalized = payload.get("raw_intake", {}).get("normalized_patient_input", {})
     ranges = payload.get("raw_intake", {}).get("reference_ranges", {})
@@ -109,6 +163,106 @@ def _feature_snapshot(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
             "deviation_ratio": deviations.get(feature, 0.0),
         }
     return snapshot
+
+
+def _specialist_focus_items(payload: dict[str, Any], agent_key: str) -> list[dict[str, Any]]:
+    agent = SPECIALIST_AGENTS.get(agent_key)
+    if not agent:
+        return []
+
+    snapshot = _feature_snapshot(payload)
+    top_abnormal = payload.get("derived_features", {}).get("top_abnormal_markers", [])
+    ordered: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    for item in top_abnormal:
+        feature = item.get("feature")
+        if feature in agent["focus_features"] and feature in snapshot and feature not in seen:
+            merged = {**snapshot[feature], **item}
+            ordered.append(merged)
+            seen.add(feature)
+
+    for feature in agent["focus_features"]:
+        if feature in snapshot and feature not in seen:
+            ordered.append(snapshot[feature])
+            seen.add(feature)
+
+    return ordered
+
+
+def _specialist_citations(agent_key: str) -> list[dict[str, Any]]:
+    agent = SPECIALIST_AGENTS.get(agent_key)
+    if not agent:
+        return []
+    seen = set()
+    citations = []
+    for source_id in agent["source_ids"]:
+        if source_id in FACT_SOURCES and source_id not in seen:
+            citations.append(FACT_SOURCES[source_id])
+            seen.add(source_id)
+    return citations
+
+
+def build_specialist_agents(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    agents = []
+    for key, agent in SPECIALIST_AGENTS.items():
+        focus_items = _specialist_focus_items(payload, key)
+        main_markers = [item.get("feature") for item in focus_items[:3] if item.get("feature")]
+        agents.append(
+            {
+                "key": key,
+                "name": agent["name"],
+                "title": agent["title"],
+                "icon": agent["icon"],
+                "skill": agent["skill"],
+                "main_markers": main_markers,
+                "available": True,
+                "focus_count": len([item for item in focus_items if item.get("status") != "normal"]),
+            }
+        )
+    return agents
+
+
+def _recent_specialist_context(history: list[dict[str, Any]], agent_key: str) -> list[dict[str, str]]:
+    recent: list[dict[str, str]] = []
+    for entry in reversed(history):
+        assistant_text = str(entry.get("assistant_message", "")).strip()
+        if not assistant_text:
+            continue
+        for other_key, other_agent in SPECIALIST_AGENTS.items():
+            if other_key == agent_key:
+                continue
+            prefix = f"{other_agent['name']} here."
+            if not assistant_text.startswith(prefix):
+                continue
+            summary = assistant_text.split("Measured data:")[0].split("Next steps:")[0]
+            summary = summary.replace(prefix, "", 1).strip()
+            summary = _shorten_answer_text(summary).rstrip(".")
+            if not summary:
+                continue
+            recent.append(
+                {
+                    "key": other_key,
+                    "name": other_agent["name"],
+                    "title": other_agent["title"],
+                    "summary": summary,
+                }
+            )
+            break
+        if len(recent) >= 2:
+            break
+    recent.reverse()
+    return recent
+
+
+def _shared_context_line(agent_key: str, focus_items: list[dict[str, Any]], history: list[dict[str, Any]]) -> str:
+    shared_context = _recent_specialist_context(history, agent_key)
+    if not shared_context:
+        return ""
+    latest = shared_context[-1]
+    focus_names = [item.get("feature") for item in focus_items[:2] if item.get("feature")]
+    focus_text = ", ".join(focus_names) if focus_names else "my part of the report"
+    return f"Shared context: keeping {latest['name']}'s earlier note in mind while I focus on {focus_text}."
 
 
 def _format_measure_line(item: dict[str, Any]) -> str:
@@ -697,12 +851,133 @@ def _deterministic_answer(payload: dict[str, Any], question: str, history: list[
     }
 
 
+def _specialist_next_steps(
+    agent_key: str,
+    payload: dict[str, Any],
+    focus_items: list[dict[str, Any]],
+    history: list[dict[str, Any]],
+) -> list[str]:
+    general_steps = payload.get("report_agent_output", {}).get("recommended_next_steps", [])
+    focus_names = [item.get("feature") for item in focus_items[:3] if item.get("feature")]
+    focus_text = ", ".join(focus_names) if focus_names else "the main markers in this specialty"
+
+    domain_steps = {
+        "dr_emily_carter": [
+            f"Review sugar-control markers first: {focus_text}.",
+            "Keep meals simpler, watch sugar-heavy foods, and review long-term glucose control with a clinician.",
+        ],
+        "dr_james_brooks": [
+            f"Review heart-risk markers first: {focus_text}.",
+            "Check blood pressure trend, salt intake, and lipid follow-up with a clinician.",
+        ],
+        "dr_hannah_reed": [
+            f"Review blood-count markers first: {focus_text}.",
+            "Discuss anemia or infection context and whether a repeat CBC is needed.",
+        ],
+        "dr_olivia_bennett": [
+            f"Review whole-body markers first: {focus_text}.",
+            "Check inflammation, liver, and kidney context with the next clinical review.",
+        ],
+    }
+
+    shared_context = _recent_specialist_context(history, agent_key)
+    shared_step = []
+    if shared_context:
+        shared_step.append(f"Also keep {shared_context[-1]['name']}'s earlier note in mind during follow-up.")
+
+    combined = domain_steps.get(agent_key, []) + shared_step + general_steps[:2]
+    deduped = []
+    for item in combined:
+        if item and item not in deduped:
+            deduped.append(item)
+    return deduped[:3]
+
+
+def _specialist_main_answer(
+    agent_key: str,
+    payload: dict[str, Any],
+    question: str,
+    focus_items: list[dict[str, Any]],
+    history: list[dict[str, Any]],
+) -> str:
+    agent = SPECIALIST_AGENTS[agent_key]
+    lowered = question.lower()
+    if not focus_items:
+        return f"{agent['name']} here. In my area, this report does not show a strong flagged pattern right now."
+
+    lead = focus_items[:3]
+    marker_bits = ", ".join(f"{item['feature']} {item['value']}" for item in lead)
+    shared_line = _shared_context_line(agent_key, lead, history)
+
+    if any(term in lowered for term in ["diet", "food", "eat", "meal", "nutrition"]):
+        diet_examples = payload.get("report_agent_output", {}).get("diet_examples", [])
+        chosen = diet_examples[0] if diet_examples else "Keep meals simple, balanced, and lower in processed foods."
+        base = f"{agent['name']} here. From the {agent['title'].lower()} view, the main food focus is: {chosen}"
+        return f"{base} {shared_line}".strip()
+
+    if any(term in lowered for term in ["drug", "medicine", "medication", "meds"]):
+        medication = payload.get("dashboard_enrichment", {}).get("medication_guidance", {})
+        matched_labels = []
+        for rule in medication.get("matched_rules", []):
+            if set(rule.get("trigger_features", [])).intersection(agent["focus_features"]):
+                matched_labels.extend(item.get("label") for item in rule.get("medication_classes", [])[:3] if item.get("label"))
+        if matched_labels:
+            unique = []
+            for label in matched_labels:
+                if label not in unique:
+                    unique.append(label)
+            base = f"{agent['name']} here. In my area, common medication classes discussed for this pattern include {', '.join(unique[:4])}. This is educational only, not a prescription."
+            return f"{base} {shared_line}".strip()
+        base = f"{agent['name']} here. In my area, I would keep medication talk general and clinician-led because the lab pattern still needs full clinical review."
+        return f"{base} {shared_line}".strip()
+
+    if any(term in lowered for term in ["why", "explain", "reason"]) and lead:
+        first = lead[0]
+        base = f"{agent['name']} here. I am focusing on {first['feature']} because it is {first['status']} at {first['value']} against {first['reference_low']}-{first['reference_high']}."
+        return f"{base} {shared_line}".strip()
+
+    base = f"{agent['name']} here. From the {agent['title'].lower()} view, the main things I see are {marker_bits}."
+    return f"{base} {shared_line}".strip()
+
+
+def _answer_as_specialist(payload: dict[str, Any], question: str, agent_key: str, history: list[dict[str, Any]]) -> dict[str, Any]:
+    agent = SPECIALIST_AGENTS[agent_key]
+    focus_items = _specialist_focus_items(payload, agent_key)
+    abnormal_focus = [item for item in focus_items if item.get("status") != "normal"] or focus_items[:3]
+    measure_lines = [_format_measure_line(item) for item in abnormal_focus[:3]]
+    next_steps = _specialist_next_steps(agent_key, payload, abnormal_focus, history)
+    citations = _specialist_citations(agent_key)
+    main_answer = _specialist_main_answer(agent_key, payload, question, abnormal_focus, history)
+    parts = [main_answer]
+    if measure_lines:
+        parts.append("Measured data:\n- " + "\n- ".join(measure_lines[:2]))
+    if next_steps:
+        parts.append("Next steps:\n- " + "\n- ".join(next_steps[:2]))
+    formatted = "\n\n".join(parts)
+    return {
+        "answer": formatted,
+        "supporting_facts": abnormal_focus,
+        "measure_lines": measure_lines,
+        "next_steps": next_steps,
+        "citations": citations,
+        "agent": {
+            "key": agent_key,
+            "name": agent["name"],
+            "title": agent["title"],
+            "icon": agent["icon"],
+        },
+    }
+
+
 def answer_case_question(
     payload: dict[str, Any],
     question: str,
     history: list[dict[str, Any]] | None = None,
+    agent_key: str | None = None,
 ) -> dict[str, Any]:
     history = history or []
+    if agent_key in SPECIALIST_AGENTS:
+        return _answer_as_specialist(payload, question, agent_key, history)
     deterministic = _deterministic_answer(payload, question, history)
     lowered = question.lower()
     use_llm = not (
@@ -752,4 +1027,10 @@ def answer_case_question(
             measure_lines=measure_lines,
             next_steps=next_steps,
         )
+    deterministic["agent"] = {
+        "key": "general",
+        "name": "General Review",
+        "title": "Case-wide Assistant",
+        "icon": "general",
+    }
     return deterministic

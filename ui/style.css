@@ -36,6 +36,22 @@ body {
     min-height: 100vh;
 }
 
+.visually-hidden-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.hidden {
+    display: none !important;
+}
+
 /* Base interactive animation classes */
 .interactive {
     transition: transform 0.2s var(--ease-out), background 0.2s var(--ease-out), filter 0.2s var(--ease-out);
@@ -95,7 +111,7 @@ body {
     border-bottom: 1px solid rgba(0,0,0,0.03);
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: 500;
 }
 
 .logo {
@@ -115,6 +131,9 @@ body {
     display: flex;
     gap: 24px;
     align-items: center;
+    position: relative;
+    z-index: 120;
+    flex-wrap: wrap;
 }
 
 .nav-item {
@@ -128,6 +147,75 @@ body {
     gap: 6px;
     padding: 8px 14px;
     border-radius: var(--radius-sm);
+}
+.upload-label {
+    border: none;
+}
+.create-client-wrapper {
+    position: relative;
+}
+.create-client-popover {
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    width: 320px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(255,255,255,0.9);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    backdrop-filter: var(--blur);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-8px) scale(0.98);
+    transition: all 0.24s var(--ease-out);
+    z-index: 320;
+}
+.create-client-popover.open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+}
+.create-client-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+}
+.create-client-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.create-client-field span {
+    font-size: 0.82rem;
+    color: var(--text-sec);
+    font-weight: 600;
+}
+.create-client-field input {
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: white;
+    font-size: 0.95rem;
+    outline: none;
+}
+.create-client-field input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+}
+.create-client-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.create-client-file {
+    margin-top: 10px;
+    font-size: 0.84rem;
+    color: var(--text-sec);
+    line-height: 1.4;
 }
 
 .nav-item:hover {
@@ -151,16 +239,21 @@ body {
     border: 1px solid rgba(0,0,0,0.05);
     border-radius: var(--radius-sm);
     box-shadow: var(--shadow);
-    min-width: 180px;
+    min-width: 260px;
+    max-height: 320px;
+    overflow-y: auto;
     opacity: 0;
     visibility: hidden;
+    pointer-events: none;
     transform: translateY(-10px) scale(0.95);
     transform-origin: top center;
     transition: all 0.3s var(--spring);
+    z-index: 220;
 }
 .dropdown-wrapper.open .dropdown-content {
     opacity: 1;
     visibility: visible;
+    pointer-events: auto;
     transform: translateY(0) scale(1);
 }
 .dropdown-wrapper.open .arrow-icon {
@@ -173,6 +266,9 @@ body {
     font-weight: 500;
     cursor: pointer;
     transition: background 0.2s, color 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .dropdown-item:first-child { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
 .dropdown-item:last-child { border-radius: 0 0 var(--radius-sm) var(--radius-sm); }
@@ -282,8 +378,10 @@ body {
 /* Patient Section Header */
 .patient-header {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
     margin-bottom: 32px;
 }
 .patient-name {
@@ -302,6 +400,21 @@ body {
     background: rgba(0,0,0,0.03);
     padding: 6px;
     border-radius: 100px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center;
+}
+.patient-switcher {
+    min-width: 220px;
+    border: none;
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--text-main);
+    padding: 10px 16px;
+    border-radius: 100px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    outline: none;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
 }
 .action-btn {
     border: none;
@@ -317,6 +430,13 @@ body {
     background: white;
     color: var(--text-main);
     box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+}
+.action-btn.danger {
+    color: #9f3b2f;
+    margin-left: 6px;
+}
+.action-btn.danger:hover {
+    background: rgba(201, 109, 52, 0.1);
 }
 
 /* Dashboard Tabs */
@@ -342,6 +462,112 @@ body {
     box-shadow: var(--shadow);
     display: flex;
     flex-direction: column;
+}
+.modal-shell {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+}
+.modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(17, 21, 13, 0.28);
+    backdrop-filter: blur(12px);
+}
+.modal-card {
+    position: relative;
+    width: min(980px, calc(100vw - 36px));
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    margin: 20px auto;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.94);
+    border-radius: 28px;
+    border: 1px solid rgba(255,255,255,0.9);
+    box-shadow: 0 28px 60px rgba(49, 61, 31, 0.2);
+}
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+.modal-header h3 {
+    font-size: 1.4rem;
+    margin-bottom: 6px;
+}
+.modal-header p {
+    color: var(--text-sec);
+    line-height: 1.5;
+    max-width: 640px;
+}
+.modal-close {
+    border: none;
+    background: rgba(0,0,0,0.05);
+    color: var(--text-main);
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-weight: 600;
+}
+.modal-actions-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+}
+.modal-status {
+    color: var(--text-sec);
+    font-size: 0.92rem;
+}
+.manual-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.manual-form-top {
+    display: grid;
+    grid-template-columns: 1fr;
+}
+.manual-form-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+.manual-field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 14px;
+    background: rgba(247, 249, 246, 0.92);
+    border: 1px solid rgba(107, 142, 35, 0.1);
+    border-radius: 18px;
+}
+.manual-field span {
+    color: var(--text-sec);
+    font-size: 0.86rem;
+    font-weight: 600;
+}
+.manual-field input {
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 12px;
+    padding: 11px 12px;
+    background: white;
+    font-size: 0.95rem;
+    outline: none;
+}
+.manual-field input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+}
+.wide-field {
+    max-width: 360px;
+}
+.manual-form-footer {
+    display: flex;
+    justify-content: flex-end;
 }
 .widget-title {
     font-size: 1.1rem;
@@ -425,6 +651,12 @@ body {
 .download-btn:hover {
     background: var(--accent-hover);
 }
+.report-status {
+    margin-top: 12px;
+    color: var(--text-sec);
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
 
 /* Chat Widget */
 .chat-panel {
@@ -437,6 +669,47 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
+}
+.agent-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.agent-chip {
+    border: 1px solid rgba(0,0,0,0.06);
+    background: rgba(255,255,255,0.75);
+    border-radius: 16px;
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+    text-align: left;
+    min-height: 78px;
+    transition: transform 0.28s var(--ease-out), box-shadow 0.28s var(--ease-out), background 0.28s var(--ease-out), border-color 0.28s var(--ease-out);
+}
+.agent-chip.active {
+    border-color: rgba(107, 142, 35, 0.35);
+    background: rgba(107, 142, 35, 0.12);
+    box-shadow: 0 10px 22px rgba(107, 142, 35, 0.16);
+    transform: translateY(-2px);
+}
+.agent-chip-icon {
+    width: 18px;
+    height: 18px;
+    color: var(--accent);
+}
+.agent-chip-name {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.2;
+}
+.agent-chip-role {
+    font-size: 0.72rem;
+    color: var(--text-sec);
+    line-height: 1.25;
 }
 .upload-zone {
     display: flex;
@@ -462,6 +735,13 @@ body {
     margin-bottom: 16px;
     scroll-behavior: smooth;
 }
+.chat-history.agent-shift {
+    animation: agentShiftGlow 0.42s var(--ease-out);
+}
+.agent-transition-msg {
+    background: rgba(107, 142, 35, 0.12);
+    border: 1px solid rgba(107, 142, 35, 0.16);
+}
 .chat-history::-webkit-scrollbar { width: 4px; }
 .chat-history::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 4px; }
 
@@ -478,6 +758,10 @@ body {
 @keyframes bounceIn {
     0% { opacity: 0; transform: scale(0.9) translateY(10px); }
     100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes agentShiftGlow {
+    0% { transform: translateY(4px); opacity: 0.86; }
+    100% { transform: translateY(0); opacity: 1; }
 }
 
 .ai-msg {
@@ -647,4 +931,52 @@ body {
 
 @keyframes slideRight {
     to { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 960px) {
+    .manual-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .hero-layout,
+    .patient-header,
+    .main-widgets-row,
+    .top-widgets-row,
+    .graphs-grid {
+        grid-template-columns: 1fr;
+        display: grid;
+    }
+    .hero-layout {
+        display: flex;
+        flex-direction: column;
+        text-align: center;
+    }
+    .patient-header {
+        gap: 16px;
+        align-items: stretch;
+    }
+    .patient-actions {
+        justify-content: flex-start;
+    }
+    .agent-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .create-client-popover {
+        right: auto;
+        left: 0;
+        width: min(320px, calc(100vw - 32px));
+    }
+    .manual-form-grid {
+        grid-template-columns: 1fr;
+    }
+    .modal-card {
+        width: calc(100vw - 18px);
+        margin: 10px auto;
+        padding: 18px;
+    }
+    .modal-header {
+        flex-direction: column;
+    }
 }

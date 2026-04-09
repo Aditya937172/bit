@@ -72,23 +72,30 @@ def extract_text(file_path: str) -> tuple[str, str, list[str]]:
     return "", "unsupported", notes
 
 
-def _extract_numeric_value(text: str, aliases: list[str]) -> float | None:
+def _alias_pattern(alias: str) -> str:
+    return re.escape(alias).replace(r"\ ", r"\s+")
+
+
+def _extract_numeric_value(texts: list[str], aliases: list[str]) -> float | None:
     for alias in aliases:
-        escaped = re.escape(alias)
-        patterns = [
-            rf"(?im)\b{escaped}\b\s*[:=\-]?\s*(-?\d+(?:\.\d+)?)",
-            rf"(?im)\b{escaped}\b[^\n\r\d-]*(-?\d+(?:\.\d+)?)",
-        ]
-        for pattern in patterns:
-            match = re.search(pattern, text)
-            if match:
-                return float(match.group(1))
+        escaped = _alias_pattern(alias)
+        for text in texts:
+            patterns = [
+                rf"(?is)\b{escaped}\b\s*[:=\-]?\s*(-?\d+(?:\.\d+)?)",
+                rf"(?is)\b{escaped}\b[^\d-]{0,40}(-?\d+(?:\.\d+)?)",
+            ]
+            for pattern in patterns:
+                match = re.search(pattern, text)
+                if match:
+                    return float(match.group(1))
     return None
 
 
 def parse_clinical_values(raw_text: str) -> dict[str, float]:
     parsed: dict[str, float] = {}
     clean_text = raw_text.replace(",", " ")
+    compact_text = re.sub(r"\s+", " ", clean_text)
+    search_texts = [clean_text, compact_text]
 
     bp_match = re.search(r"(?im)\b(?:blood pressure|bp)\b[^\d]*(\d{2,3})\s*/\s*(\d{2,3})", clean_text)
     if bp_match:
@@ -98,7 +105,7 @@ def parse_clinical_values(raw_text: str) -> dict[str, float]:
     for feature, aliases in FEATURE_ALIASES.items():
         if feature in parsed:
             continue
-        value = _extract_numeric_value(clean_text, aliases)
+        value = _extract_numeric_value(search_texts, aliases)
         if value is not None:
             parsed[feature] = value
 

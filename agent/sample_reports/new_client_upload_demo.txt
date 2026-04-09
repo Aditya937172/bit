@@ -1,0 +1,31 @@
+AI DIAGNOSIS REPORT
+Patient Name: Mira Shah
+Age: 46
+Sex: Female
+Report Note: Fresh intake document for create-client upload testing.
+
+Clinical Parameters:
+Glucose: 167.0
+Cholesterol: 232.0
+Hemoglobin: 10.9
+Platelets: 148000.0
+White Blood Cells: 11600.0
+Red Blood Cells: 3.9
+Hematocrit: 33.2
+Mean Corpuscular Volume: 72.5
+Mean Corpuscular Hemoglobin: 23.8
+Mean Corpuscular Hemoglobin Concentration: 31.0
+Insulin: 27.0
+BMI: 31.2
+Systolic Blood Pressure: 152.0
+Diastolic Blood Pressure: 97.0
+Triglycerides: 236.0
+HbA1c: 8.0
+LDL Cholesterol: 166.0
+HDL Cholesterol: 36.0
+ALT: 49.0
+AST: 42.0
+Heart Rate: 108.0
+Creatinine: 1.2
+Troponin: 0.03
+C-reactive Protein: 5.0

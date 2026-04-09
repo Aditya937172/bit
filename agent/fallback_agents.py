@@ -118,6 +118,9 @@ def build_report_fallback(source_data: dict[str, Any], research_output: dict[str
     top_items = [item["feature"] for item in abnormal[:5]]
     system_buckets = research_output.get("system_buckets", {})
     diet_examples = _build_diet_examples(abnormal)
+    document_summary = source_data.get("document_summary", {})
+    parsed_feature_count = int(document_summary.get("parsed_feature_count", 0) or 0)
+    missing_feature_count = int(document_summary.get("missing_feature_count", 0) or 0)
     measured_highlights = [
         f'{item["feature"]}: {item["value"]} vs {item["reference_low"]}-{item["reference_high"]} ({item["status"]})'
         for item in abnormal[:6]
@@ -132,11 +135,18 @@ def build_report_fallback(source_data: dict[str, Any], research_output: dict[str
             if value > high + ((high - low) * 0.3) or value < low - ((high - low) * 0.3):
                 critical_markers.append(feature)
 
+    coverage_note = ""
+    if missing_feature_count:
+        coverage_note = (
+            f" The uploaded document explicitly contained {parsed_feature_count} markers, and {missing_feature_count} fields were missing from the file."
+        )
+
     return {
         "headline": "Quick Health Report",
         "summary": (
             f'Here is the simple picture: {len(abnormal)} markers are outside the normal range. '
             f'The main points to review first are {", ".join(top_items) if top_items else "no major abnormalities detected"}.'
+            f'{coverage_note}'
         ),
         "key_findings": verification_output.get("verified_claims", [])[:8],
         "measured_highlights": measured_highlights,
@@ -158,6 +168,9 @@ def build_report_fallback(source_data: dict[str, Any], research_output: dict[str
             "Review the top markers with a clinician or medical reviewer.",
             "Confirm units and report context for any severe or unexpected values.",
             diet_examples[0],
+            f"Data coverage note: the uploaded file supplied {parsed_feature_count} direct markers and {missing_feature_count} missing fields."
+            if missing_feature_count
+            else "Data coverage note: the uploaded file supplied the full marker set used in this report.",
             "Keep this report for future comparison with the next visit or upload.",
         ],
         "report_style": "simple_bullet_brief",

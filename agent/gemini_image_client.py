@@ -4,7 +4,6 @@ import os
 from typing import Any
 
 from dotenv import load_dotenv
-from google import genai
 
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -14,9 +13,13 @@ load_dotenv(os.path.join(CURRENT_DIR, ".env"))
 class GeminiImageClient:
     def __init__(self) -> None:
         self.api_key = os.getenv("GEMINI_API_KEY", "")
-        self.model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image-preview")
+        self.model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image-preview")
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY is missing in agent/.env")
+        try:
+            from google import genai  # type: ignore
+        except ImportError as exc:
+            raise RuntimeError("google-genai is not installed") from exc
         self.client = genai.Client(api_key=self.api_key)
 
     def generate_report_visual(self, prompt: str, output_path: str) -> dict[str, Any]:

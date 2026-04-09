@@ -1,0 +1,31 @@
+AI DIAGNOSIS REPORT
+Patient Name: Aarav Rao
+Age: 46
+Sex: Male
+Report Note: Follow-up medical report uploaded after lifestyle changes and medication review.
+
+Clinical Parameters:
+Glucose: 142.0
+Cholesterol: 214.0
+Hemoglobin: 11.9
+Platelets: 162000.0
+White Blood Cells: 10800.0
+Red Blood Cells: 4.0
+Hematocrit: 34.8
+Mean Corpuscular Volume: 74.0
+Mean Corpuscular Hemoglobin: 24.5
+Mean Corpuscular Hemoglobin Concentration: 31.4
+Insulin: 24.0
+BMI: 28.8
+Systolic Blood Pressure: 138.0
+Diastolic Blood Pressure: 88.0
+Triglycerides: 188.0
+HbA1c: 7.1
+LDL Cholesterol: 146.0
+HDL Cholesterol: 38.0
+ALT: 46.0
+AST: 39.0
+Heart Rate: 94.0
+Creatinine: 1.1
+Troponin: 0.02
+C-reactive Protein: 3.1

@@ -10,9 +10,12 @@ from typing import Any
 
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(ROOT_DIR, "Database", "mediBase.db")
-CASE_OUTPUT_DIR = os.path.join(ROOT_DIR, "agent", "generated_cases")
-UPLOAD_DIR = os.path.join(ROOT_DIR, "agent", "uploads")
+PACKAGED_DB_PATH = os.path.join(ROOT_DIR, "Database", "mediBase.db")
+IS_VERCEL = os.getenv("VERCEL") == "1"
+RUNTIME_BASE_DIR = os.path.join("/tmp", "medicore") if IS_VERCEL else ROOT_DIR
+DB_PATH = os.path.join(RUNTIME_BASE_DIR, "Database", "mediBase.db")
+CASE_OUTPUT_DIR = os.path.join(RUNTIME_BASE_DIR, "agent", "generated_cases")
+UPLOAD_DIR = os.path.join(RUNTIME_BASE_DIR, "agent", "uploads")
 
 
 LEGACY_COLUMN_TO_FEATURE = {
@@ -54,8 +57,11 @@ def get_connection() -> sqlite3.Connection:
 
 
 def ensure_storage() -> None:
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     os.makedirs(CASE_OUTPUT_DIR, exist_ok=True)
     os.makedirs(UPLOAD_DIR, exist_ok=True)
+    if PACKAGED_DB_PATH != DB_PATH and os.path.exists(PACKAGED_DB_PATH) and not os.path.exists(DB_PATH):
+        shutil.copyfile(PACKAGED_DB_PATH, DB_PATH)
     conn = get_connection()
     try:
         conn.executescript(
@@ -100,6 +106,9 @@ def ensure_storage() -> None:
 
 
 def extract_patient_name(payload: dict[str, Any]) -> str:
+    case_name = payload.get("case_metadata", {}).get("patient_name")
+    if case_name and str(case_name).strip():
+        return str(case_name).strip()
     preview = (
         payload.get("raw_intake", {})
         .get("parsed_document", {})
@@ -285,6 +294,31 @@ def list_chat_messages(case_id: str, limit: int = 20) -> list[dict[str, Any]]:
     messages = [dict(row) for row in rows]
     messages.reverse()
     return messages
+
+
+def delete_case(case_id: str) -> bool:
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT pdf_path, image_path, source_path FROM agent_cases WHERE case_id = ?",
+            (case_id,),
+        ).fetchone()
+        if not row:
+            return False
+
+        conn.execute("DELETE FROM agent_chat_messages WHERE case_id = ?", (case_id,))
+        conn.execute("DELETE FROM agent_cases WHERE case_id = ?", (case_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+    for path in [row["pdf_path"], row["image_path"], row["source_path"]]:
+        if path and os.path.exists(path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+    return True
 
 
 def persist_case_files(case_id: str, payload: dict[str, Any]) -> dict[str, str]:

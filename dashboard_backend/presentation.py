@@ -13,6 +13,158 @@ from agent.model_adapter import get_reference_ranges
 from .storage import normalize_legacy_values, parse_legacy_confidence
 
 
+DEMO_CASE_LIBRARY: dict[str, dict[str, Any]] = {
+    "demo-metabolic-riya": {
+        "patient_name": "Riya Sharma",
+        "file_name": "riya_sharma_demo.txt",
+        "values": {
+            "Glucose": 172.0,
+            "Cholesterol": 228.0,
+            "Hemoglobin": 11.2,
+            "Platelets": 155000.0,
+            "White Blood Cells": 10800.0,
+            "Red Blood Cells": 4.0,
+            "Hematocrit": 35.0,
+            "Mean Corpuscular Volume": 76.0,
+            "Mean Corpuscular Hemoglobin": 24.8,
+            "Mean Corpuscular Hemoglobin Concentration": 31.5,
+            "Insulin": 26.0,
+            "BMI": 30.4,
+            "Systolic Blood Pressure": 152.0,
+            "Diastolic Blood Pressure": 98.0,
+            "Triglycerides": 246.0,
+            "HbA1c": 8.4,
+            "LDL Cholesterol": 171.0,
+            "HDL Cholesterol": 37.0,
+            "ALT": 52.0,
+            "AST": 43.0,
+            "Heart Rate": 102.0,
+            "Creatinine": 1.2,
+            "Troponin": 0.02,
+            "C-reactive Protein": 5.1,
+        },
+    },
+    "demo-bp-aarav": {
+        "patient_name": "Aarav Mehta",
+        "file_name": "aarav_mehta_demo.txt",
+        "values": {
+            "Glucose": 118.0,
+            "Cholesterol": 198.0,
+            "Hemoglobin": 13.4,
+            "Platelets": 188000.0,
+            "White Blood Cells": 8600.0,
+            "Red Blood Cells": 4.6,
+            "Hematocrit": 40.0,
+            "Mean Corpuscular Volume": 86.0,
+            "Mean Corpuscular Hemoglobin": 29.4,
+            "Mean Corpuscular Hemoglobin Concentration": 33.6,
+            "Insulin": 16.0,
+            "BMI": 28.6,
+            "Systolic Blood Pressure": 164.0,
+            "Diastolic Blood Pressure": 102.0,
+            "Triglycerides": 154.0,
+            "HbA1c": 6.2,
+            "LDL Cholesterol": 136.0,
+            "HDL Cholesterol": 42.0,
+            "ALT": 35.0,
+            "AST": 31.0,
+            "Heart Rate": 106.0,
+            "Creatinine": 1.0,
+            "Troponin": 0.01,
+            "C-reactive Protein": 2.4,
+        },
+    },
+    "demo-anemia-neha": {
+        "patient_name": "Neha Patel",
+        "file_name": "neha_patel_demo.txt",
+        "values": {
+            "Glucose": 96.0,
+            "Cholesterol": 181.0,
+            "Hemoglobin": 9.6,
+            "Platelets": 132000.0,
+            "White Blood Cells": 9200.0,
+            "Red Blood Cells": 3.7,
+            "Hematocrit": 30.8,
+            "Mean Corpuscular Volume": 69.0,
+            "Mean Corpuscular Hemoglobin": 21.8,
+            "Mean Corpuscular Hemoglobin Concentration": 30.0,
+            "Insulin": 11.0,
+            "BMI": 22.8,
+            "Systolic Blood Pressure": 112.0,
+            "Diastolic Blood Pressure": 72.0,
+            "Triglycerides": 128.0,
+            "HbA1c": 5.4,
+            "LDL Cholesterol": 109.0,
+            "HDL Cholesterol": 48.0,
+            "ALT": 24.0,
+            "AST": 22.0,
+            "Heart Rate": 96.0,
+            "Creatinine": 0.8,
+            "Troponin": 0.01,
+            "C-reactive Protein": 1.8,
+        },
+    },
+    "demo-cardiac-kabir": {
+        "patient_name": "Kabir Singh",
+        "file_name": "kabir_singh_demo.txt",
+        "values": {
+            "Glucose": 138.0,
+            "Cholesterol": 244.0,
+            "Hemoglobin": 12.8,
+            "Platelets": 172000.0,
+            "White Blood Cells": 11800.0,
+            "Red Blood Cells": 4.3,
+            "Hematocrit": 37.0,
+            "Mean Corpuscular Volume": 82.0,
+            "Mean Corpuscular Hemoglobin": 27.0,
+            "Mean Corpuscular Hemoglobin Concentration": 32.4,
+            "Insulin": 21.0,
+            "BMI": 29.8,
+            "Systolic Blood Pressure": 156.0,
+            "Diastolic Blood Pressure": 96.0,
+            "Triglycerides": 210.0,
+            "HbA1c": 6.9,
+            "LDL Cholesterol": 162.0,
+            "HDL Cholesterol": 38.0,
+            "ALT": 41.0,
+            "AST": 39.0,
+            "Heart Rate": 114.0,
+            "Creatinine": 1.1,
+            "Troponin": 0.06,
+            "C-reactive Protein": 6.2,
+        },
+    },
+}
+
+
+CLINICAL_FEATURE_ORDER = [
+    "Glucose",
+    "Cholesterol",
+    "Hemoglobin",
+    "Platelets",
+    "White Blood Cells",
+    "Red Blood Cells",
+    "Hematocrit",
+    "Mean Corpuscular Volume",
+    "Mean Corpuscular Hemoglobin",
+    "Mean Corpuscular Hemoglobin Concentration",
+    "Insulin",
+    "BMI",
+    "Systolic Blood Pressure",
+    "Diastolic Blood Pressure",
+    "Triglycerides",
+    "HbA1c",
+    "LDL Cholesterol",
+    "HDL Cholesterol",
+    "ALT",
+    "AST",
+    "Heart Rate",
+    "Creatinine",
+    "Troponin",
+    "C-reactive Protein",
+]
+
+
 def _feature_cards(
     source_data: dict[str, Any],
     research_output: dict[str, Any],
@@ -175,6 +327,61 @@ def build_payload_from_legacy_row(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def build_payload_from_manual_input(patient_name: str, clinical_values: dict[str, float]) -> dict[str, Any]:
+    normalized_patient_input = {
+        feature: float(clinical_values[feature])
+        for feature in CLINICAL_FEATURE_ORDER
+        if feature in clinical_values
+    }
+    summary_lines = [f"{feature}: {normalized_patient_input[feature]}" for feature in CLINICAL_FEATURE_ORDER if feature in normalized_patient_input]
+    raw_intake, source_data = derive_source_data(
+        normalized_patient_input,
+        file_name=f"{patient_name.lower().replace(' ', '_')}_manual_entry.json",
+        file_type=".manual",
+        extraction_mode="manual_form",
+        parsed_feature_count=len(normalized_patient_input),
+        missing_feature_count=max(0, len(CLINICAL_FEATURE_ORDER) - len(normalized_patient_input)),
+        extracted_text="Patient Name: " + patient_name + "\n" + "\n".join(summary_lines),
+    )
+
+    research_output = build_research_fallback(source_data)
+    verification_output = build_verification_fallback(source_data, research_output)
+    report_output = build_report_fallback(source_data, research_output, verification_output)
+    derived_features = build_derived_features(
+        source_data=source_data,
+        research_output=research_output,
+        verification_output=verification_output,
+        report_output=report_output,
+    )
+    document_output = build_document_fallback(
+        source_data=source_data,
+        derived_features=derived_features,
+        report_output=report_output,
+        verification_output=verification_output,
+    )
+    chat_context = build_chat_agent_context(
+        source_data=source_data,
+        derived_features=derived_features,
+        report_output=report_output,
+        verification_output=verification_output,
+    )
+
+    return {
+        "case_metadata": {
+            "patient_name": patient_name,
+            "mode": "Live",
+        },
+        "raw_intake": raw_intake,
+        "research_agent_output": research_output,
+        "verification_agent_output": verification_output,
+        "report_agent_output": report_output,
+        "derived_features": derived_features,
+        "document_agent_output": document_output,
+        "chat_agent_context": chat_context,
+        "feature_outputs": _feature_cards(source_data, research_output, verification_output, report_output),
+    }
+
+
 def _short_label(text: str) -> str:
     return text.replace("Cholesterol", "Chol").replace("Pressure", "BP")[:12]
 
@@ -263,50 +470,55 @@ def build_dashboard_profile(payload: dict[str, Any], *, case_id: str, mode: str)
     }
 
 
-def load_demo_payload(case_id: str = "demo-visualhook") -> dict[str, Any]:
+def load_demo_payload(case_id: str = "demo-metabolic-riya") -> dict[str, Any]:
     root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     demo_path = os.path.join(root_dir, "agent", "agent_report_output_visualhook.json")
-    if os.path.exists(demo_path):
+    if case_id == "demo-visualhook" and os.path.exists(demo_path):
         with open(demo_path, "r", encoding="utf-8") as handle:
             payload = json.load(handle)
         payload.setdefault("case_metadata", {})
         payload["case_metadata"].update({"case_id": case_id, "patient_name": "Demo Case", "mode": "Demo"})
         return payload
 
-    demo_values = {
-        "Glucose": 110.0,
-        "Cholesterol": 185.0,
-        "Hemoglobin": 12.1,
-        "Platelets": 180000.0,
-        "White Blood Cells": 9000.0,
-        "Red Blood Cells": 4.0,
-        "Hematocrit": 36.0,
-        "Mean Corpuscular Volume": 77.0,
-        "Mean Corpuscular Hemoglobin": 25.0,
-        "Mean Corpuscular Hemoglobin Concentration": 32.0,
-        "Insulin": 15.0,
-        "BMI": 27.0,
-        "Systolic Blood Pressure": 138.0,
-        "Diastolic Blood Pressure": 88.0,
-        "Triglycerides": 170.0,
-        "HbA1c": 6.4,
-        "LDL Cholesterol": 142.0,
-        "HDL Cholesterol": 42.0,
-        "ALT": 39.0,
-        "AST": 33.0,
-        "Heart Rate": 86.0,
-        "Creatinine": 1.0,
-        "Troponin": 0.02,
-        "C-reactive Protein": 2.0,
+    demo_config = DEMO_CASE_LIBRARY.get(case_id) or {
+        "patient_name": "Demo Case",
+        "file_name": "demo_case.txt",
+        "values": {
+            "Glucose": 110.0,
+            "Cholesterol": 185.0,
+            "Hemoglobin": 12.1,
+            "Platelets": 180000.0,
+            "White Blood Cells": 9000.0,
+            "Red Blood Cells": 4.0,
+            "Hematocrit": 36.0,
+            "Mean Corpuscular Volume": 77.0,
+            "Mean Corpuscular Hemoglobin": 25.0,
+            "Mean Corpuscular Hemoglobin Concentration": 32.0,
+            "Insulin": 15.0,
+            "BMI": 27.0,
+            "Systolic Blood Pressure": 138.0,
+            "Diastolic Blood Pressure": 88.0,
+            "Triglycerides": 170.0,
+            "HbA1c": 6.4,
+            "LDL Cholesterol": 142.0,
+            "HDL Cholesterol": 42.0,
+            "ALT": 39.0,
+            "AST": 33.0,
+            "Heart Rate": 86.0,
+            "Creatinine": 1.0,
+            "Troponin": 0.02,
+            "C-reactive Protein": 2.0,
+        },
     }
+    demo_values = demo_config["values"]
     raw_intake, source_data = derive_source_data(
         demo_values,
-        file_name="demo_case.txt",
+        file_name=demo_config["file_name"],
         file_type=".txt",
         extraction_mode="demo",
         parsed_feature_count=24,
         missing_feature_count=0,
-        extracted_text="Patient Name: Demo Case",
+        extracted_text=f"Patient Name: {demo_config['patient_name']}",
     )
     research = build_research_fallback(source_data)
     verification = build_verification_fallback(source_data, research)
@@ -330,7 +542,7 @@ def load_demo_payload(case_id: str = "demo-visualhook") -> dict[str, Any]:
         verification_output=verification,
     )
     payload = {
-        "case_metadata": {"case_id": case_id, "patient_name": "Demo Case", "mode": "Demo"},
+        "case_metadata": {"case_id": case_id, "patient_name": demo_config["patient_name"], "mode": "Demo"},
         "raw_intake": raw_intake,
         "research_agent_output": research,
         "verification_agent_output": verification,
@@ -344,6 +556,8 @@ def load_demo_payload(case_id: str = "demo-visualhook") -> dict[str, Any]:
 
 
 def load_demo_profiles() -> list[dict[str, Any]]:
-    payload = load_demo_payload()
-    case_id = payload.get("case_metadata", {}).get("case_id", "demo-visualhook")
-    return [build_dashboard_profile(payload, case_id=case_id, mode="Demo")]
+    profiles: list[dict[str, Any]] = []
+    for case_id in DEMO_CASE_LIBRARY:
+        payload = load_demo_payload(case_id)
+        profiles.append(build_dashboard_profile(payload, case_id=case_id, mode="Demo"))
+    return profiles
