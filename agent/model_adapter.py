@@ -5,10 +5,6 @@ import os
 import sys
 from typing import Any
 
-import numpy as np
-import shap
-
-
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
@@ -34,6 +30,8 @@ def fill_missing_with_midpoints(values: dict[str, float]) -> dict[str, float]:
 
 
 def run_existing_model(patient_values: dict[str, float]) -> dict[str, Any]:
+    import numpy as np
+
     model = load_model()
     scaled = apply_scaling(patient_values)
     probabilities = model.predict_proba(scaled)[0]
@@ -72,6 +70,8 @@ def run_existing_model(patient_values: dict[str, float]) -> dict[str, Any]:
     }
 
     try:
+        import shap
+
         explainer = shap.TreeExplainer(model, feature_names=FEATURE_ORDER)
         shap_values = explainer.shap_values(scaled)
 

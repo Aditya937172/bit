@@ -454,32 +454,37 @@ async def get_example_document() -> FileResponse:
 
 @app.post("/api/analyze-path")
 async def analyze_local_path(request: AnalyzePathRequest) -> dict[str, Any]:
-    if not os.path.exists(request.file_path):
-        raise HTTPException(status_code=404, detail="Input file not found")
+    try:
+        if not os.path.exists(request.file_path):
+            raise HTTPException(status_code=404, detail="Input file not found")
 
-    imported_payload = _load_payload_from_json_file(request.file_path)
-    if imported_payload is not None:
-        payload = imported_payload
-    else:
-        payload = run_three_agent_pipeline(
-            request.file_path,
-            fill_missing=request.fill_missing,
-            prefer_local_agents=request.prefer_local_agents,
+        imported_payload = _load_payload_from_json_file(request.file_path)
+        if imported_payload is not None:
+            payload = imported_payload
+        else:
+            payload = run_three_agent_pipeline(
+                request.file_path,
+                fill_missing=request.fill_missing,
+                prefer_local_agents=request.prefer_local_agents,
+            )
+
+        case_id = f"case-{uuid.uuid4().hex[:12]}"
+        payload = _store_payload(
+            case_id,
+            payload,
+            source_file_name=os.path.basename(request.file_path),
+            source_file_type=os.path.splitext(request.file_path)[1].lower(),
+            source_path=request.file_path,
         )
-
-    case_id = f"case-{uuid.uuid4().hex[:12]}"
-    payload = _store_payload(
-        case_id,
-        payload,
-        source_file_name=os.path.basename(request.file_path),
-        source_file_type=os.path.splitext(request.file_path)[1].lower(),
-        source_path=request.file_path,
-    )
-    return {
-        "case_id": case_id,
-        "profile": build_dashboard_profile(payload, case_id=case_id, mode="Live"),
-        "payload": payload,
-    }
+        return {
+            "case_id": case_id,
+            "profile": build_dashboard_profile(payload, case_id=case_id, mode="Live"),
+            "payload": payload,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"analyze-path failed: {exc}") from exc
 
 
 @app.post("/api/analyze-upload")
@@ -489,39 +494,44 @@ async def analyze_upload(
     prefer_local_agents: bool = Form(True),
     patient_name: str | None = Form(None),
 ) -> dict[str, Any]:
-    case_id = f"case-{uuid.uuid4().hex[:12]}"
-    suffix = os.path.splitext(file.filename or "")[1].lower()
-    local_path = os.path.join(UPLOAD_DIR, f"{case_id}{suffix or '.bin'}")
+    try:
+        case_id = f"case-{uuid.uuid4().hex[:12]}"
+        suffix = os.path.splitext(file.filename or "")[1].lower()
+        local_path = os.path.join(UPLOAD_DIR, f"{case_id}{suffix or '.bin'}")
 
-    with open(local_path, "wb") as handle:
-        shutil.copyfileobj(file.file, handle)
+        with open(local_path, "wb") as handle:
+            shutil.copyfileobj(file.file, handle)
 
-    imported_payload = _load_payload_from_json_file(local_path)
-    if imported_payload is not None:
-        payload = imported_payload
-    else:
-        payload = run_three_agent_pipeline(
-            local_path,
-            fill_missing=fill_missing,
-            prefer_local_agents=prefer_local_agents,
+        imported_payload = _load_payload_from_json_file(local_path)
+        if imported_payload is not None:
+            payload = imported_payload
+        else:
+            payload = run_three_agent_pipeline(
+                local_path,
+                fill_missing=fill_missing,
+                prefer_local_agents=prefer_local_agents,
+            )
+
+        if patient_name and patient_name.strip():
+            payload.setdefault("case_metadata", {})
+            payload["case_metadata"]["patient_name"] = patient_name.strip()
+
+        payload = _store_payload(
+            case_id,
+            payload,
+            source_file_name=file.filename or os.path.basename(local_path),
+            source_file_type=suffix,
+            source_path=local_path,
         )
-
-    if patient_name and patient_name.strip():
-        payload.setdefault("case_metadata", {})
-        payload["case_metadata"]["patient_name"] = patient_name.strip()
-
-    payload = _store_payload(
-        case_id,
-        payload,
-        source_file_name=file.filename or os.path.basename(local_path),
-        source_file_type=suffix,
-        source_path=local_path,
-    )
-    return {
-        "case_id": case_id,
-        "profile": build_dashboard_profile(payload, case_id=case_id, mode="Live"),
-        "payload": payload,
-    }
+        return {
+            "case_id": case_id,
+            "profile": build_dashboard_profile(payload, case_id=case_id, mode="Live"),
+            "payload": payload,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"analyze-upload failed: {exc}") from exc
 
 
 @app.post("/api/chat")

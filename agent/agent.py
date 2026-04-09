@@ -14,6 +14,27 @@ from parser import extract_text, parse_clinical_values  # noqa: E402
 from schema import build_ingestion_schema, build_output_schema  # noqa: E402
 
 
+def build_placeholder_ml_output(reason: str) -> dict:
+    return {
+        "model_metadata": {
+            "estimator_type": "unavailable",
+            "classes": [],
+            "n_features_in": len(get_reference_ranges()),
+            "feature_importances": {},
+        },
+        "inference": {
+            "scaled_input": [],
+            "predicted_class_index": None,
+            "predicted_condition": "Unavailable",
+            "confidence": 0.0,
+            "class_probabilities": [],
+        },
+        "explainability": {
+            "error": reason,
+        },
+    }
+
+
 def build_pipeline_output(file_path: str, fill_missing: bool = True) -> dict:
     extracted_text, extraction_mode, notes = extract_text(file_path)
     parsed_values = parse_clinical_values(extracted_text)
@@ -36,7 +57,12 @@ def build_pipeline_output(file_path: str, fill_missing: bool = True) -> dict:
             "Clinical payload is incomplete. Provide a richer report or enable midpoint filling."
         )
 
-    ml_output = run_existing_model(normalized_patient_input)
+    try:
+        ml_output = run_existing_model(normalized_patient_input)
+    except Exception as exc:
+        notes.append(f"ML model skipped: {exc}")
+        ml_output = build_placeholder_ml_output(str(exc))
+
     return build_output_schema(
         parsed_document=parsed_document,
         normalized_patient_input=normalized_patient_input,

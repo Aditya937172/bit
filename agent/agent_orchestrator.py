@@ -7,6 +7,7 @@ from typing import Any
 
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+RUNTIME_OUTPUT_DIR = os.path.join("/tmp", "medicore", "agent") if os.getenv("VERCEL") == "1" else CURRENT_DIR
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 
@@ -22,6 +23,11 @@ from prompts import DOCUMENT_AGENT_PROMPT, REPORT_AGENT_PROMPT, RESEARCH_AGENT_P
 from retrieval import build_retrieval_context  # noqa: E402
 from skills_manager import build_skill_block  # noqa: E402
 from visual_fallback import generate_local_visual  # noqa: E402
+
+
+def _runtime_visual_path() -> str:
+    os.makedirs(RUNTIME_OUTPUT_DIR, exist_ok=True)
+    return os.path.join(RUNTIME_OUTPUT_DIR, "generated_report_visual.png")
 
 
 def _feature_cards(source_data: dict[str, Any], research_output: dict[str, Any], verification_output: dict[str, Any], report_output: dict[str, Any]) -> dict[str, Any]:
@@ -134,7 +140,7 @@ def _build_fallback_pipeline_output(
         image_client = GeminiImageClient()
         visual_output = image_client.generate_report_visual(
             document_output["image_prompt_for_visual_report"],
-            os.path.join(CURRENT_DIR, "generated_report_visual.png"),
+            _runtime_visual_path(),
         )
     except Exception as image_exc:
         fallback_payload = {
@@ -144,7 +150,7 @@ def _build_fallback_pipeline_output(
         }
         visual_output = generate_local_visual(
             fallback_payload,
-            os.path.join(CURRENT_DIR, "generated_report_visual.png"),
+            _runtime_visual_path(),
         )
         visual_output["fallback_reason"] = str(image_exc)
     chat_agent_context = build_chat_agent_context(
@@ -286,7 +292,7 @@ def run_three_agent_pipeline(
         image_client = GeminiImageClient()
         visual_output = image_client.generate_report_visual(
             document_output["image_prompt_for_visual_report"],
-            os.path.join(CURRENT_DIR, "generated_report_visual.png"),
+            _runtime_visual_path(),
         )
     except Exception as exc:
         fallback_payload = {
@@ -296,7 +302,7 @@ def run_three_agent_pipeline(
         }
         visual_output = generate_local_visual(
             fallback_payload,
-            os.path.join(CURRENT_DIR, "generated_report_visual.png"),
+            _runtime_visual_path(),
         )
         visual_output["fallback_reason"] = str(exc)
 
